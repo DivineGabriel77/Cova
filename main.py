@@ -1,498 +1,125 @@
-
-import os
-import io
-import uuid
-import sqlite3
-import secrets
-from datetime import datetime, timedelta, timezone
-from contextlib import contextmanager
-
-import qrcode
-from fastapi import FastAPI, HTTPException, Response
+import os, sqlite3, secrets, uuid
+from datetime import datetime, timezone
+from pathlib import Path
+from io import BytesIO
+from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field
+from fastapi.responses import StreamingResponse
+from pydantic import BaseModel, Field, ConfigDict
+import qrcode
 
+ROOT=Path(__file__).resolve().parent
+DB_PATH=Path(os.getenv("COVA_DB_PATH", ROOT/"cova.db"))
+PUBLIC_BASE_URL=os.getenv("PUBLIC_BASE_URL","http://localhost:8000").rstrip("/")
+ORIGINS=[x.strip() for x in os.getenv("COVA_ALLOWED_ORIGINS","*").split(",") if x.strip()]
+app=FastAPI(title="Cova API",version="0.2.0")
+app.add_middleware(CORSMiddleware,allow_origins=ORIGINS,allow_credentials=False,allow_methods=["GET","POST","OPTIONS"],allow_headers=["*"])
 
-# ==========================================
-# COVA CONFIGURATION
-# ==========================================
+def now(): return datetime.now(timezone.utc).isoformat()
+def connect():
+    c=sqlite3.connect(DB_PATH); c.row_factory=sqlite3.Row; return c
+def init():
+    with connect() as c:
+        c.execute("""CREATE TABLE IF NOT EXISTS payment_requests(
+        id TEXT PRIMARY KEY, token TEXT UNIQUE NOT NULL, sender_name TEXT NOT NULL,
+        sender_id TEXT NOT NULL, recipient_id TEXT NOT NULL, amount REAL NOT NULL,
+        currency TEXT NOT NULL, note TEXT DEFAULT '', status TEXT NOT NULL,
+        created_at TEXT NOT NULL, paid_at TEXT)""")
+        c.execute("CREATE INDEX IF NOT EXISTS idx_token ON payment_requests(token)")
+        c.execute("CREATE INDEX IF NOT EXISTS idx_recipient ON payment_requests(recipient_id,status)")
+init()
 
-APP_NAME = "Cova"
-DATABASE = os.getenv("COVA_DATABASE", "cova.db")
-PUBLIC_BASE_URL = os.getenv(
-    "COVA_PUBLIC_URL",
-    "http://localhost:8000"
-).rstrip("/")
+class NewRequest(BaseModel):
+    model_config=ConfigDict(str_strip_whitespace=True)
+    sender_name:str=Field(min_length=1,max_length=100)
+    sender_id:str=Field(min_length=1,max_length=100)
+    recipient_id:str=Field(min_length=1,max_length=100)
+    amount:float=Field(gt=0,le=100000000)
+    currency:str=Field(default="NGN",min_length=3,max_length=3)
+    note:str=Field(default="",max_length=240)
+class ConfirmDemo(BaseModel):
+    confirmation:bool=True
+class TransferInput(BaseModel):
+    bank_code:str=Field(min_length=1,max_length=40)
+    bank_name:str=Field(min_length=1,max_length=100)
+    account_number:str=Field(pattern=r"^\d{10}$")
+    account_name:str=Field(min_length=1,max_length=120)
+    amount:float=Field(gt=0,le=100000000)
+    currency:str=Field(default="NGN",min_length=3,max_length=3)
+    reference:str=Field(default="Cova QR bank transfer",max_length=160)
+    source:str=Field(default="cova_qr_scan",max_length=40)
 
-REQUEST_EXPIRY_DAYS = 7
-
-app = FastAPI(
-    title="Cova API",
-    description="Cova QR payment request infrastructure",
-    version="1.0.0"
-)
-
-# Development configuration.
-# Restrict this to your actual frontend domain in production.
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=False,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-
-# ==========================================
-# DATABASE
-# ==========================================
-
-@contextmanager
-def database():
-    connection = sqlite3.connect(DATABASE)
-    connection.row_factory = sqlite3.Row
-
-    try:
-        yield connection
-        connection.commit()
-    except Exception:
-        connection.rollback()
-        raise
-    finally:
-        connection.close()
-
-
-def initialize_database():
-    with database() as db:
-
-        db.execute("""
-            CREATE TABLE IF NOT EXISTS payment_requests (
-                id TEXT PRIMARY KEY,
-                token TEXT UNIQUE NOT NULL,
-                sender_name TEXT NOT NULL,
-                sender_id TEXT NOT NULL,
-                recipient_id TEXT NOT NULL,
-                amount INTEGER NOT NULL,
-                currency TEXT NOT NULL DEFAULT 'NGN',
-                note TEXT,
-                status TEXT NOT NULL DEFAULT 'pending',
-                created_at TEXT NOT NULL,
-                expires_at TEXT NOT NULL,
-                paid_at TEXT
-            )
-        """)
-
-        db.execute("""
-            CREATE INDEX IF NOT EXISTS idx_request_token
-            ON payment_requests(token)
-        """)
-
-        db.execute("""
-            CREATE INDEX IF NOT EXISTS idx_recipient
-            ON payment_requests(recipient_id)
-        """)
-
-
-initialize_database()
-
-
-# ==========================================
-# REQUEST MODELS
-# ==========================================
-
-class CreateRequest(BaseModel):
-    sender_name: str = Field(min_length=2, max_length=100)
-    sender_id: str = Field(min_length=3, max_length=100)
-    recipient_id: str = Field(min_length=3, max_length=100)
-    amount: int = Field(gt=0, le=1000000000)
-    currency: str = "NGN"
-    note: str = Field(default="", max_length=250)
-
-
-class DemoPayment(BaseModel):
-    confirmation: bool
-
-
-# ==========================================
-# HELPERS
-# ==========================================
-
-def current_time():
-    return datetime.now(timezone.utc)
-
-
-def serialize_request(row):
-    return {
-        "id": row["id"],
-        "token": row["token"],
-        "sender_name": row["sender_name"],
-        "sender_id": row["sender_id"],
-        "recipient_id": row["recipient_id"],
-        "amount": row["amount"],
-        "currency": row["currency"],
-        "note": row["note"],
-        "status": row["status"],
-        "created_at": row["created_at"],
-        "expires_at": row["expires_at"],
-        "paid_at": row["paid_at"],
-        "qr_url": f"{PUBLIC_BASE_URL}/api/qr/{row['token']}",
-        "share_url": f"{PUBLIC_BASE_URL}/pay/{row['token']}"
-    }
-
-
-def find_request(request_id):
-    with database() as db:
-        row = db.execute(
-            "SELECT * FROM payment_requests WHERE id = ?",
-            (request_id,)
-        ).fetchone()
-
-    if not row:
-        raise HTTPException(
-            status_code=404,
-            detail="Payment request not found"
-        )
-
-    return row
-
-
-def update_expiration(row):
-    if row["status"] != "pending":
-        return row
-
-    expires = datetime.fromisoformat(row["expires_at"])
-
-    if current_time() >= expires:
-        with database() as db:
-            db.execute(
-                """
-                UPDATE payment_requests
-                SET status = 'expired'
-                WHERE id = ? AND status = 'pending'
-                """,
-                (row["id"],)
-            )
-
-        return find_request(row["id"])
-
-    return row
-
-
-# ==========================================
-# HOME / HEALTH
-# ==========================================
+def pack(r):
+    return {k:r[k] for k in ("id","token","sender_name","sender_id","recipient_id","amount","currency","note","status","created_at","paid_at")}
 
 @app.get("/")
-def home():
-    return {
-        "app": APP_NAME,
-        "message": "Welcome to the Cova API",
-        "status": "online",
-        "version": "1.0.0"
-    }
-
-
+def root(): return {"service":"Cova API","health":"/api/health","docs":"/docs"}
 @app.get("/api/health")
 def health():
-    return {
-        "status": "healthy",
-        "service": "Cova Backend"
-    }
-
-
-# ==========================================
-# CREATE PAYMENT REQUEST
-# ==========================================
+    try:
+        with connect() as c: c.execute("SELECT 1")
+        return {"ok":True,"service":"cova-api","database":"connected","transfers_enabled":False}
+    except sqlite3.Error: raise HTTPException(503,"Database unavailable")
 
 @app.post("/api/requests")
-def create_request(data: CreateRequest):
-
-    request_id = str(uuid.uuid4())
-    token = secrets.token_urlsafe(32)
-
-    created = current_time()
-    expires = created + timedelta(days=REQUEST_EXPIRY_DAYS)
-
-    with database() as db:
-
-        db.execute("""
-            INSERT INTO payment_requests (
-                id,
-                token,
-                sender_name,
-                sender_id,
-                recipient_id,
-                amount,
-                currency,
-                note,
-                status,
-                created_at,
-                expires_at
-            )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (
-            request_id,
-            token,
-            data.sender_name,
-            data.sender_id,
-            data.recipient_id,
-            data.amount,
-            data.currency.upper(),
-            data.note,
-            "pending",
-            created.isoformat(),
-            expires.isoformat()
-        ))
-
-        row = db.execute(
-            "SELECT * FROM payment_requests WHERE id = ?",
-            (request_id,)
-        ).fetchone()
-
-    return {
-        "success": True,
-        "message": "Cova payment request created",
-        "request": serialize_request(row)
-    }
-
-
-# ==========================================
-# GET ALL EXPECTED PAYMENTS
-# ==========================================
+def create_request(p:NewRequest):
+    rid=str(uuid.uuid4()); token=secrets.token_urlsafe(24); created=now()
+    with connect() as c:
+        c.execute("""INSERT INTO payment_requests
+        (id,token,sender_name,sender_id,recipient_id,amount,currency,note,status,created_at)
+        VALUES(?,?,?,?,?,?,?,?,'pending',?)""",
+        (rid,token,p.sender_name,p.sender_id,p.recipient_id,p.amount,p.currency.upper(),p.note,created))
+    return {"success":True,"request":{"id":rid,"token":token,"sender_name":p.sender_name,"sender_id":p.sender_id,
+    "recipient_id":p.recipient_id,"amount":p.amount,"currency":p.currency.upper(),"note":p.note,"status":"pending",
+    "created_at":created,"qr_url":f"{PUBLIC_BASE_URL}/pay/{token}","resolve_url":f"{PUBLIC_BASE_URL}/api/resolve/{token}",
+    "qr_image_url":f"{PUBLIC_BASE_URL}/api/qr/{token}"}}
 
 @app.get("/api/requests")
-def get_requests(
-    recipient_id: str,
-    status: str = "all"
-):
+def list_requests(recipient_id:str=Query(min_length=1,max_length=100),status:str=Query("all",pattern="^(all|pending|paid|expired|cancelled)$")):
+    sql="SELECT * FROM payment_requests WHERE recipient_id=?"; args=[recipient_id]
+    if status!="all": sql+=" AND status=?"; args.append(status)
+    sql+=" ORDER BY created_at DESC LIMIT 200"
+    with connect() as c: rows=c.execute(sql,args).fetchall()
+    return {"success":True,"requests":[pack(r) for r in rows]}
 
-    allowed_statuses = {
-        "all",
-        "pending",
-        "paid",
-        "expired",
-        "cancelled"
-    }
-
-    if status not in allowed_statuses:
-        raise HTTPException(
-            status_code=400,
-            detail="Invalid request status"
-        )
-
-    with database() as db:
-
-        rows = db.execute("""
-            SELECT * FROM payment_requests
-            WHERE recipient_id = ?
-            ORDER BY created_at DESC
-        """, (recipient_id,)).fetchall()
-
-    results = []
-
-    for row in rows:
-        row = update_expiration(row)
-
-        if status == "all" or row["status"] == status:
-            results.append(serialize_request(row))
-
-    return {
-        "success": True,
-        "count": len(results),
-        "requests": results
-    }
-
-
-# ==========================================
-# GET SINGLE REQUEST
-# ==========================================
-
-@app.get("/api/requests/{request_id}")
-def get_single_request(request_id: str):
-
-    row = find_request(request_id)
-    row = update_expiration(row)
-
-    return {
-        "success": True,
-        "request": serialize_request(row)
-    }
-
-
-# ==========================================
-# RESOLVE SHARED QR TOKEN
-# ==========================================
+@app.get("/api/requests/{rid}")
+def get_request(rid:str):
+    with connect() as c: r=c.execute("SELECT * FROM payment_requests WHERE id=?",(rid,)).fetchone()
+    if not r: raise HTTPException(404,"Request not found")
+    return {"success":True,"request":pack(r)}
 
 @app.get("/api/resolve/{token}")
-def resolve_qr(token: str):
-
-    with database() as db:
-
-        row = db.execute("""
-            SELECT * FROM payment_requests
-            WHERE token = ?
-        """, (token,)).fetchone()
-
-    if not row:
-        raise HTTPException(
-            status_code=404,
-            detail="Invalid Cova payment QR"
-        )
-
-    row = update_expiration(row)
-
-    return {
-        "success": True,
-        "request": serialize_request(row)
-    }
-
-
-# ==========================================
-# GENERATE QR IMAGE
-# ==========================================
+def resolve(token:str):
+    with connect() as c: r=c.execute("SELECT * FROM payment_requests WHERE token=?",(token,)).fetchone()
+    if not r: raise HTTPException(404,"Cova payment request not found")
+    return {"success":True,"request":pack(r)}
 
 @app.get("/api/qr/{token}")
-def generate_qr(token: str):
+def qr_image(token:str):
+    with connect() as c: r=c.execute("SELECT token FROM payment_requests WHERE token=?",(token,)).fetchone()
+    if not r: raise HTTPException(404,"Cova payment request not found")
+    image=qrcode.make(f"{PUBLIC_BASE_URL}/pay/{token}"); buffer=BytesIO(); image.save(buffer,format="PNG"); buffer.seek(0)
+    return StreamingResponse(buffer,media_type="image/png")
 
-    with database() as db:
+@app.post("/api/requests/{rid}/cancel")
+def cancel(rid:str):
+    with connect() as c:
+        result=c.execute("UPDATE payment_requests SET status='cancelled' WHERE id=? AND status='pending'",(rid,))
+        if result.rowcount==0:
+            if not c.execute("SELECT id FROM payment_requests WHERE id=?",(rid,)).fetchone(): raise HTTPException(404,"Request not found")
+            raise HTTPException(409,"Only pending requests can be cancelled")
+    return {"success":True,"status":"cancelled"}
 
-        row = db.execute("""
-            SELECT * FROM payment_requests
-            WHERE token = ?
-        """, (token,)).fetchone()
+@app.post("/api/requests/{rid}/simulate-payment")
+def simulate(rid:str,p:ConfirmDemo):
+    if not p.confirmation: raise HTTPException(400,"Confirmation is required")
+    with connect() as c:
+        result=c.execute("UPDATE payment_requests SET status='paid',paid_at=? WHERE id=? AND status='pending'",(now(),rid))
+        if result.rowcount==0:
+            if not c.execute("SELECT id FROM payment_requests WHERE id=?",(rid,)).fetchone(): raise HTTPException(404,"Request not found")
+            raise HTTPException(409,"Request is no longer pending")
+    return {"success":True,"status":"paid","real_money_moved":False}
 
-    if not row:
-        raise HTTPException(
-            status_code=404,
-            detail="QR payment request not found"
-        )
-
-    row = update_expiration(row)
-
-    if row["status"] != "pending":
-        raise HTTPException(
-            status_code=410,
-            detail="This payment request is no longer active"
-        )
-
-    # QR contains a shareable payment URL.
-    # It does not contain bank credentials.
-
-    qr_data = f"{PUBLIC_BASE_URL}/pay/{token}"
-
-    qr = qrcode.QRCode(
-        version=None,
-        error_correction=qrcode.constants.ERROR_CORRECT_M,
-        box_size=10,
-        border=4
-    )
-
-    qr.add_data(qr_data)
-    qr.make(fit=True)
-
-    image = qr.make_image(
-        fill_color="#101b2d",
-        back_color="white"
-    )
-
-    buffer = io.BytesIO()
-    image.save(buffer, format="PNG")
-
-    return Response(
-        content=buffer.getvalue(),
-        media_type="image/png",
-        headers={
-            "Cache-Control": "no-store"
-        }
-    )
-
-
-# ==========================================
-# CANCEL PAYMENT REQUEST
-# ==========================================
-
-@app.post("/api/requests/{request_id}/cancel")
-def cancel_request(request_id: str):
-
-    row = find_request(request_id)
-    row = update_expiration(row)
-
-    if row["status"] != "pending":
-        raise HTTPException(
-            status_code=400,
-            detail="Only pending requests can be cancelled"
-        )
-
-    with database() as db:
-        db.execute("""
-            UPDATE payment_requests
-            SET status = 'cancelled'
-            WHERE id = ?
-        """, (request_id,))
-
-    return {
-        "success": True,
-        "message": "Payment request cancelled"
-    }
-
-
-# ==========================================
-# DEMO PAYMENT CONFIRMATION
-# ==========================================
-
-@app.post("/api/requests/{request_id}/simulate-payment")
-def simulate_payment(
-    request_id: str,
-    data: DemoPayment
-):
-
-    if not data.confirmation:
-        raise HTTPException(
-            status_code=400,
-            detail="Payment confirmation required"
-        )
-
-    row = find_request(request_id)
-    row = update_expiration(row)
-
-    if row["status"] != "pending":
-        raise HTTPException(
-            status_code=400,
-            detail="This request is not payable"
-        )
-
-    paid_at = current_time().isoformat()
-
-    with database() as db:
-
-        result = db.execute("""
-            UPDATE payment_requests
-            SET status = 'paid',
-                paid_at = ?
-            WHERE id = ?
-            AND status = 'pending'
-        """, (paid_at, request_id))
-
-        if result.rowcount != 1:
-            raise HTTPException(
-                status_code=409,
-                detail="Request has already been processed"
-            )
-
-    return {
-        "success": True,
-        "message": "DEMO ONLY: Payment marked as paid",
-        "real_money_moved": False,
-        "request_id": request_id,
-        "paid_at": paid_at
-    }
-
-
-# ==========================================
-# APPLICATION STARTUP
-# ==========================================
-
-@app.on_event("startup")
-def startup_event():
-    initialize_database()
-    print("Cova backend started successfully.")
+@app.post("/api/transfers")
+def transfer(p:TransferInput):
+    raise HTTPException(503,"Bank transfers are not enabled. Connect a licensed bank/PSP transfer provider first. No money was sent.")
