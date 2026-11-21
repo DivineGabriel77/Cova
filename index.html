@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="theme-color" content="#101b2d" />
-  <title>Cova — Money, in a moment</title>
+  <meta name="theme-color" content="#7654f6" />
+  <title>Cova — Move money simply</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -26,11 +26,16 @@
         <button class="nav-item active" data-view="home"><span>⌂</span> Overview</button>
         <button class="nav-item" data-view="requests"><span>▦</span> Expected payments <b id="navRequestCount">2</b></button>
         <button class="nav-item" data-view="scan"><span>▧</span> Scan & pay</button>
+        <button class="nav-item" data-view="scan" data-open-bank-transfer="true"><span>↗</span> Bank transfer</button>
         <button class="nav-item" data-view="myqr"><span>⌗</span> My Cova QR</button>
         <button class="nav-item" data-view="activity"><span>↗</span> Activity</button>
       </nav>
       <div class="sidebar-bottom">
-        <div class="help-card"><span class="help-icon">✦</span><strong>Payments, made simpler.</strong><p>Receive a request from anywhere. Pay when you're ready.</p></div>
+        <div class="help-card">
+          <span class="help-icon">✦</span>
+          <strong>Payments, made simpler.</strong>
+          <p>Receive a request from anywhere. Pay when you're ready.</p>
+        </div>
         <button class="nav-item" data-view="settings"><span>⚙</span> Settings</button>
         <div class="sidebar-foot">Cova preview · 2026</div>
       </div>
@@ -38,77 +43,232 @@
 
     <main class="main">
       <header class="topbar">
-        <button class="mobile-brand" data-view="home"><span class="brand-mark"><span></span><span></span><span></span></span> Cova</button>
-        <div class="breadcrumb">Your money space <span>/</span> <strong id="pageName">Overview</strong></div>
-        <div class="top-actions"><button class="icon-btn" id="notificationBtn" aria-label="Notifications">♧<i></i></button><div class="avatar small">DG</div></div>
+        <button class="mobile-brand" data-view="home">
+          <span class="brand-mark"><span></span><span></span><span></span></span> Cova
+        </button>
+        <div class="breadcrumb">
+          Your money space <span>/</span> <strong id="pageName">Overview</strong>
+        </div>
+        <div class="top-actions">
+          <button class="icon-btn" id="notificationBtn" aria-label="Notifications">♧<i></i></button>
+          <div class="avatar small">DG</div>
+        </div>
       </header>
 
       <section class="view active" id="view-home">
-        <div class="welcome-row"><div><p class="eyebrow">THURSDAY, NOVEMBER 20, 2026</p><h1>Move money.<br><em>Without the friction.</em></h1><p class="subhead">Your payment requests, QR codes and transfers — all in one digital place.</p></div><div class="hero-orb"><div class="orb-ring"></div><div class="orb-qr">⌗</div><span class="orb-dot dot-one"></span><span class="orb-dot dot-two"></span></div></div>
+        <div class="welcome-row">
+          <div>
+            <p class="eyebrow">THURSDAY, NOVEMBER 20, 2026</p>
+            <h1>Move money.<br><em>Without the friction.</em></h1>
+            <p class="subhead">Your payment requests, QR codes and transfers — all in one digital place.</p>
+          </div>
+          <div class="hero-orb">
+            <div class="orb-ring"></div>
+            <div class="orb-qr">⌗</div>
+            <span class="orb-dot dot-one"></span>
+            <span class="orb-dot dot-two"></span>
+          </div>
+        </div>
+
         <div class="quick-actions">
-          <button class="quick-card primary" data-view="scan"><span class="quick-icon">▧</span><span><strong>Scan & pay</strong><small>Scan a QR or upload an image</small></span><b>↗</b></button>
-          <button class="quick-card" data-view="requests"><span class="quick-icon lavender">▦</span><span><strong>Expected payments</strong><small>Requests waiting for you</small></span><b>↗</b></button>
-          <button class="quick-card" data-view="myqr"><span class="quick-icon mint">⌗</span><span><strong>Share my QR</strong><small>Let anyone request payment</small></span><b>↗</b></button>
+          <button class="quick-card primary" data-view="scan">
+            <span class="quick-icon">▧</span>
+            <span><strong>Scan & pay</strong><small>Scan a QR or upload an image</small></span>
+            <b>↗</b>
+          </button>
+          <button class="quick-card bank-transfer-shortcut" data-view="scan" data-open-bank-transfer="true">
+            <span class="quick-icon purple">↗</span>
+            <span><strong>Bank transfer QR</strong><small>Scan to pay any supported bank</small></span>
+            <b>↗</b>
+          </button>
+          <button class="quick-card" data-view="requests">
+            <span class="quick-icon lavender">▦</span>
+            <span><strong>Expected payments</strong><small>Requests waiting for you</small></span>
+            <b>↗</b>
+          </button>
+          <button class="quick-card" data-view="myqr">
+            <span class="quick-icon mint">⌗</span>
+            <span><strong>Share my QR</strong><small>Let anyone request payment</small></span>
+            <b>↗</b>
+          </button>
         </div>
-        <div class="section-heading"><div><p class="eyebrow">YOUR PAYMENT SPACE</p><h2>At a glance</h2></div><button class="text-button" data-view="activity">View activity <span>→</span></button></div>
+
+        <div class="section-heading">
+          <div><p class="eyebrow">YOUR PAYMENT SPACE</p><h2>At a glance</h2></div>
+          <button class="text-button" data-view="activity">View activity <span>→</span></button>
+        </div>
+
         <div class="stats-grid">
-          <article class="stat-card"><span class="stat-label">Pending requests</span><strong id="pendingTotal">₦27,500</strong><span class="stat-note"><i class="yellow-dot"></i><span id="pendingCount">2 requests</span> waiting</span></article>
-          <article class="stat-card"><span class="stat-label">Paid this month</span><strong>₦84,000</strong><span class="stat-note positive">↗ Your demo activity</span></article>
-          <article class="stat-card"><span class="stat-label">Your Cova ID</span><strong class="id-value">COVA-8291</strong><span class="stat-note">Your unique payment identity</span></article>
+          <article class="stat-card">
+            <span class="stat-label">Pending requests</span>
+            <strong id="pendingTotal">₦27,500</strong>
+            <span class="stat-note"><i class="yellow-dot"></i><span id="pendingCount">2 requests</span> waiting</span>
+          </article>
+          <article class="stat-card">
+            <span class="stat-label">Paid this month</span>
+            <strong>₦84,000</strong>
+            <span class="stat-note positive">↗ Your demo activity</span>
+          </article>
+          <article class="stat-card">
+            <span class="stat-label">Your Cova ID</span>
+            <strong class="id-value">COVA-8291</strong>
+            <span class="stat-note">Your unique payment identity</span>
+          </article>
         </div>
-        <div class="section-heading request-heading"><div><p class="eyebrow">DON'T MISS A REQUEST</p><h2>Waiting for you</h2></div><button class="text-button" data-view="requests">See all <span>→</span></button></div>
+
+        <div class="section-heading request-heading">
+          <div><p class="eyebrow">DON'T MISS A REQUEST</p><h2>Waiting for you</h2></div>
+          <button class="text-button" data-view="requests">See all <span>→</span></button>
+        </div>
         <div class="request-list compact" id="homeRequests"></div>
         <p class="demo-note"><span>ⓘ</span> This is an interactive frontend prototype. No real money is moved.</p>
       </section>
 
       <section class="view" id="view-requests">
-        <div class="page-intro"><p class="eyebrow">YOUR INBOX FOR MONEY</p><h1>Expected payments</h1><p class="subhead">Payment requests sent to you from anywhere. Review them and pay when you're ready.</p></div>
-        <div class="toolbar"><div class="search-box"><span>⌕</span><input id="requestSearch" placeholder="Search a person or request..." /></div><button class="outline-btn" id="addRequestBtn">＋ Add request</button></div>
-        <div class="filter-tabs"><button class="filter active" data-filter="all">All <span id="allCount">2</span></button><button class="filter" data-filter="pending">Awaiting payment <span id="waitingCount">2</span></button><button class="filter" data-filter="paid">Paid</button></div>
+        <div class="page-intro">
+          <p class="eyebrow">YOUR INBOX FOR MONEY</p>
+          <h1>Expected payments</h1>
+          <p class="subhead">Payment requests sent to you from anywhere. Review them and pay when you're ready.</p>
+        </div>
+        <div class="toolbar">
+          <div class="search-box"><span>⌕</span><input id="requestSearch" placeholder="Search a person or request..." /></div>
+          <button class="outline-btn" id="addRequestBtn">＋ Add request</button>
+        </div>
+        <div class="filter-tabs">
+          <button class="filter active" data-filter="all">All <span id="allCount">2</span></button>
+          <button class="filter" data-filter="pending">Awaiting payment <span id="waitingCount">2</span></button>
+          <button class="filter" data-filter="paid">Paid</button>
+        </div>
         <div class="request-list" id="allRequests"></div>
-        <div class="empty-state hidden" id="emptyRequests"><div>▦</div><h3>No requests here</h3><p>New payment requests will appear in this space.</p></div>
+        <div class="empty-state hidden" id="emptyRequests">
+          <div>▦</div><h3>No requests here</h3>
+          <p>New payment requests will appear in this space.</p>
+        </div>
       </section>
 
       <section class="view" id="view-scan">
-        <div class="page-intro"><p class="eyebrow">INSTANT QR RECOGNITION</p><h1>Scan & pay</h1><p class="subhead">Scan a QR code in front of you, or import one someone sent you online.</p></div>
+        <div class="page-intro">
+          <p class="eyebrow">INSTANT QR RECOGNITION</p>
+          <h1>Scan & pay</h1>
+          <p class="subhead">Scan a Cova payment QR or a bank-transfer QR. Confirm the recipient and amount before authorizing.</p>
+        </div>
         <div class="scan-layout">
           <div class="scan-panel">
+            <div class="scan-mode-banner">
+              <span class="scan-mode-icon">↗</span>
+              <div>
+                <strong>Quick bank transfer</strong>
+                <small>Scan a Cova bank QR to prepare a transfer to OPay, Kuda, Zenith, Wema and other connected banks.</small>
+              </div>
+            </div>
             <div class="scan-frame" id="scanFrame">
               <div class="scan-corners"><i></i><i></i><i></i><i></i></div>
               <video id="cameraVideo" autoplay playsinline muted class="camera-video hidden"></video>
               <div class="scan-placeholder" id="scanPlaceholder">
                 <div class="scan-symbol">⌗</div>
-                <span>Ready to scan a Cova QR</span>
-                <small>Scan from another screen or import a QR image</small>
+                <span>Ready to scan</span>
+                <small>Scan a Cova QR or import one from your phone</small>
               </div>
               <canvas id="scanCanvas" class="hidden"></canvas>
             </div>
             <div class="scan-controls">
               <button class="solid-btn" id="startCamera">Open camera</button>
-              <label class="outline-btn upload-label">Import from WhatsApp / Gallery<input type="file" id="qrUpload" accept="image/*" hidden /></label>
+              <label class="outline-btn upload-label">
+                Choose QR image
+                <input type="file" id="qrUpload" accept="image/*" hidden />
+              </label>
             </div>
             <button class="stop-camera hidden" id="stopCamera">Stop camera</button>
-            <p class="scan-tip">Got a QR in WhatsApp, Telegram, email or another messaging app? Save the image to your device, then tap “Import from WhatsApp / Gallery”. Cova reads it and verifies the payment request.</p>
+            <p class="scan-tip">Got a QR in WhatsApp, Telegram, email or another messaging app? Save the image to your device, then tap “Choose QR image”. Cova reads it and verifies the payment request.</p>
             <div class="scan-result hidden" id="scanResult"></div>
+            <div class="backend-status" id="backendStatus">
+              <span class="status-pulse"></span><span>Checking Cova service…</span>
+            </div>
           </div>
-          <div class="scan-side"><div class="info-card"><span class="info-icon">✦</span><h3>Distance doesn't matter.</h3><p>A QR image can be shared digitally and saved to your Expected Payments inbox. You don't need to be beside the sender.</p></div><div class="security-card"><span>◈</span><div><strong>Always verify before paying</strong><p>Check the recipient and amount before authorizing a transfer.</p></div></div></div>
+          <div class="scan-side">
+            <div class="info-card">
+              <span class="info-icon">✦</span>
+              <h3>Distance doesn't matter.</h3>
+              <p>A Cova QR can be shared digitally. Import the image from a message and review the payment details wherever you are.</p>
+            </div>
+            <div class="security-card">
+              <span>◈</span>
+              <div><strong>Always verify before paying</strong><p>Check the recipient and amount before authorizing a transfer.</p></div>
+            </div>
+          </div>
         </div>
       </section>
 
       <section class="view" id="view-myqr">
-        <div class="page-intro"><p class="eyebrow">YOUR DIGITAL PAYMENT IDENTITY</p><h1>Your Cova QR</h1><p class="subhead">Share your payment identity with anyone, anywhere. They can send you a payment request.</p></div>
-        <div class="myqr-layout"><div class="myqr-card"><div class="myqr-top"><span class="brand tiny"><span class="brand-mark"><span></span><span></span><span></span></span>Cova</span><span class="verified">✓ Verified profile</span></div><div class="myqr-code" id="myQrGraphic"><div class="fake-qr"></div><div class="qr-center">C</div></div><h2>Divine Gabriel</h2><p class="muted">COVA-8291</p><div class="qr-divider"></div><p class="qr-caption">SCAN OR SHARE TO REQUEST PAYMENT</p><div class="myqr-buttons"><button class="solid-btn" id="shareQr">Share my QR ↗</button><button class="outline-btn" id="downloadQr">Download QR</button></div></div><div class="myqr-explainer"><span class="eyebrow">HOW IT WORKS</span><h2>One identity.<br>Requests from anywhere.</h2><ol><li><b>01</b><span><strong>Share your Cova ID</strong><small>Send your QR digitally to anyone.</small></span></li><li><b>02</b><span><strong>They create a request</strong><small>They choose an amount and send it to you.</small></span></li><li><b>03</b><span><strong>You decide when to pay</strong><small>The request waits in your inbox until it expires or is paid.</small></span></li></ol></div></div>
+        <div class="page-intro">
+          <p class="eyebrow">YOUR DIGITAL PAYMENT IDENTITY</p>
+          <h1>Your Cova QR</h1>
+          <p class="subhead">Share your payment identity with anyone, anywhere. They can send you a payment request.</p>
+        </div>
+        <div class="myqr-layout">
+          <div class="myqr-card">
+            <div class="myqr-top">
+              <span class="brand tiny"><span class="brand-mark"><span></span><span></span><span></span></span>Cova</span>
+              <span class="verified">✓ Verified profile</span>
+            </div>
+            <div class="myqr-code" id="myQrGraphic"><div class="fake-qr"></div><div class="qr-center">C</div></div>
+            <h2>Divine Gabriel</h2>
+            <p class="muted">COVA-8291</p>
+            <div class="qr-divider"></div>
+            <p class="qr-caption">SCAN OR SHARE TO REQUEST PAYMENT</p>
+            <div class="myqr-buttons">
+              <button class="solid-btn" id="shareQr">Share my QR ↗</button>
+              <button class="outline-btn" id="downloadQr">Download QR</button>
+            </div>
+          </div>
+          <div class="myqr-explainer">
+            <span class="eyebrow">HOW IT WORKS</span>
+            <h2>One identity.<br>Requests from anywhere.</h2>
+            <ol>
+              <li><b>01</b><span><strong>Share your Cova ID</strong><small>Send your QR digitally to anyone.</small></span></li>
+              <li><b>02</b><span><strong>They create a request</strong><small>They choose an amount and send it to you.</small></span></li>
+              <li><b>03</b><span><strong>You decide when to pay</strong><small>The request waits in your inbox until it expires or is paid.</small></span></li>
+            </ol>
+          </div>
+        </div>
       </section>
 
       <section class="view" id="view-activity">
-        <div class="page-intro"><p class="eyebrow">YOUR PAYMENT HISTORY</p><h1>Activity</h1><p class="subhead">A clear record of your Cova payment activity.</p></div>
-        <div class="activity-card"><div class="activity-row"><div class="activity-icon sent">↗</div><div class="activity-detail"><strong>Payment to Ada N.</strong><small>Today · 10:42 AM · Cova transfer</small></div><div class="activity-amount">−₦25,000<small class="status-paid">Completed</small></div></div><div class="activity-row"><div class="activity-icon received">↙</div><div class="activity-detail"><strong>Payment received · Chidi</strong><small>Yesterday · 4:18 PM</small></div><div class="activity-amount positive">+₦35,000<small class="status-paid">Received</small></div></div><div class="activity-row"><div class="activity-icon sent">↗</div><div class="activity-detail"><strong>Payment to Tolu A.</strong><small>Nov 17 · 2:05 PM</small></div><div class="activity-amount">−₦10,000<small class="status-paid">Completed</small></div></div></div>
+        <div class="page-intro">
+          <p class="eyebrow">YOUR PAYMENT HISTORY</p><h1>Activity</h1>
+          <p class="subhead">A clear record of your Cova payment activity.</p>
+        </div>
+        <div class="activity-card">
+          <div class="activity-row">
+            <div class="activity-icon sent">↗</div>
+            <div class="activity-detail"><strong>Payment to Ada N.</strong><small>Today · 10:42 AM · Cova transfer</small></div>
+            <div class="activity-amount">−₦25,000<small class="status-paid">Completed</small></div>
+          </div>
+          <div class="activity-row">
+            <div class="activity-icon received">↙</div>
+            <div class="activity-detail"><strong>Payment received · Chidi</strong><small>Yesterday · 4:18 PM</small></div>
+            <div class="activity-amount positive">+₦35,000<small class="status-paid">Received</small></div>
+          </div>
+          <div class="activity-row">
+            <div class="activity-icon sent">↗</div>
+            <div class="activity-detail"><strong>Payment to Tolu A.</strong><small>Nov 17 · 2:05 PM</small></div>
+            <div class="activity-amount">−₦10,000<small class="status-paid">Completed</small></div>
+          </div>
+        </div>
         <p class="demo-note"><span>ⓘ</span> Sample transactions for demonstration only.</p>
       </section>
 
       <section class="view" id="view-settings">
-        <div class="page-intro"><p class="eyebrow">YOUR ACCOUNT</p><h1>Settings</h1><p class="subhead">Manage your Cova profile and security preferences.</p></div>
-        <div class="settings-card"><div class="setting-row"><div><strong>Profile</strong><small>Divine Gabriel · COVA-8291</small></div><span>→</span></div><div class="setting-row"><div><strong>Payment authorization</strong><small>PIN or biometric confirmation required</small></div><span class="setting-pill">Required</span></div><div class="setting-row"><div><strong>Notifications</strong><small>Payment requests and transaction updates</small></div><span class="setting-pill">On</span></div><div class="setting-row"><div><strong>Privacy & security</strong><small>Manage trusted devices and account access</small></div><span>→</span></div></div>
+        <div class="page-intro">
+          <p class="eyebrow">YOUR ACCOUNT</p><h1>Settings</h1>
+          <p class="subhead">Manage your Cova profile and security preferences.</p>
+        </div>
+        <div class="settings-card">
+          <div class="setting-row"><div><strong>Profile</strong><small>Divine Gabriel · COVA-8291</small></div><span>→</span></div>
+          <div class="setting-row"><div><strong>Payment authorization</strong><small>PIN or biometric confirmation required</small></div><span class="setting-pill">Required</span></div>
+          <div class="setting-row"><div><strong>Notifications</strong><small>Payment requests and transaction updates</small></div><span class="setting-pill">On</span></div>
+          <div class="setting-row"><div><strong>Privacy & security</strong><small>Manage trusted devices and account access</small></div><span>→</span></div>
+        </div>
       </section>
     </main>
   </div>
@@ -116,14 +276,44 @@
   <div class="modal-backdrop hidden" id="requestModal">
     <div class="modal">
       <button class="modal-close" id="closeModal">×</button>
-      <p class="eyebrow">ADD TO YOUR INBOX</p><h2>Save a payment request</h2><p class="muted">Enter request details from a QR or payment message. In the production app, these details will be verified against Cova's server.</p>
-      <form id="requestForm"><label>Sender's name<input id="senderName" required placeholder="e.g. David Okafor" /></label><label>Amount (₦)<input id="senderAmount" type="number" min="1" required placeholder="15000" /></label><label>Request note<input id="senderNote" placeholder="e.g. November contribution" /></label><label>Request reference<input id="senderRef" placeholder="e.g. COVA-REQ-2841" /></label><button class="solid-btn full" type="submit">Save to Expected Payments</button></form>
+      <p class="eyebrow">ADD TO YOUR INBOX</p>
+      <h2>Save a payment request</h2>
+      <p class="muted">Enter request details from a QR or payment message. In the production app, these details will be verified against Cova's server.</p>
+      <form id="requestForm">
+        <label>Sender's name<input id="senderName" required placeholder="e.g. David Okafor" /></label>
+        <label>Amount (₦)<input id="senderAmount" type="number" min="1" required placeholder="15000" /></label>
+        <label>Request note<input id="senderNote" placeholder="e.g. November contribution" /></label>
+        <label>Request reference<input id="senderRef" placeholder="e.g. COVA-REQ-2841" /></label>
+        <button class="solid-btn full" type="submit">Save to Expected Payments</button>
+      </form>
       <p class="form-foot">Saving a request does not send money.</p>
     </div>
   </div>
-  <div class="modal-backdrop hidden" id="payModal"><div class="modal pay-modal"><button class="modal-close" id="closePay">×</button><p class="eyebrow">REVIEW BEFORE YOU PAY</p><div class="pay-avatar" id="payAvatar">D</div><h2 id="payName">David Okafor</h2><p class="muted" id="payRef">COVA-REQ-2841</p><div class="pay-amount" id="payAmount">₦15,000</div><p class="muted" id="payNote">November contribution</p><div class="warning-box">Confirm the recipient and amount carefully. This prototype does not connect to a bank or move real money.</div><button class="solid-btn full" id="confirmPay">Simulate payment</button></div></div>
+
+  <div class="modal-backdrop hidden" id="payModal">
+    <div class="modal pay-modal">
+      <button class="modal-close" id="closePay">×</button>
+      <p class="eyebrow">REVIEW BEFORE YOU PAY</p>
+      <div class="pay-avatar" id="payAvatar">D</div>
+      <h2 id="payName">David Okafor</h2>
+      <p class="muted" id="payRef">COVA-REQ-2841</p>
+      <div class="pay-amount" id="payAmount">₦15,000</div>
+      <p class="muted" id="payNote">November contribution</p>
+      <div id="bankTransferDetails" class="bank-transfer-details hidden">
+        <div class="bank-detail-row"><span>Bank</span><strong id="transferBank">—</strong></div>
+        <div class="bank-detail-row"><span>Account number</span><strong id="transferAccount">—</strong></div>
+        <div class="bank-detail-row"><span>Account name</span><strong id="transferAccountName">—</strong></div>
+        <label class="transfer-amount-label" for="transferAmount">Amount to send (₦)</label>
+        <input id="transferAmount" class="transfer-amount-input" type="number" min="1" step="0.01" placeholder="Enter amount" />
+      </div>
+      <div class="warning-box">Confirm the recipient and amount carefully. This prototype does not connect to a bank or move real money.</div>
+      <button class="solid-btn full" id="confirmPay">Simulate payment</button>
+    </div>
+  </div>
+
   <div class="toast" id="toast"></div>
   <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.4/build/qrcode.min.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
