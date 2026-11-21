@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Flora — Turn Ideas Into Cinematic Videos</title>
+
+    <meta name="description" content="Create narrated, documentary-style videos from your ideas using reusable real-world visuals.">
+
+    <link rel="stylesheet" href="style.css">
+
+    <style>
+        .nav-auth { display:flex; align-items:center; justify-content:center; gap:12px; }
+        .nav-auth button { display:inline-flex; align-items:center; justify-content:center; min-height:44px; padding:10px 20px; border-radius:10px; font-family:inherit; font-size:14px; font-weight:700; cursor:pointer; transition:background-color .2s ease,color .2s ease,transform .2s ease; }
+        .nav-auth .login-btn { background:#fff; color:#5135d8; border:2px solid #5135d8; }
+        .nav-auth .signup-btn { background:#5135d8; color:#fff; border:2px solid #5135d8; }
+        .nav-auth .login-btn:hover { background:#f1edff; color:#3920a8; }
+        .nav-auth .signup-btn:hover { background:#3920a8; border-color:#3920a8; color:#fff; }
+        .nav-auth button:focus-visible { outline:3px solid #b8aaff; outline-offset:3px; }
+        .nav-auth button:active { transform:scale(.97); }
+        @media (max-width:600px) { .nav-auth { gap:8px; } .nav-auth button { min-height:42px; padding:9px 13px; font-size:13px; white-space:nowrap; } }
+    </style>
+</head>
+
+<body>
+
+    <!-- BACKGROUND -->
+    <div class="background-glow glow-one"></div>
+    <div class="background-glow glow-two"></div>
+
+    <!-- NAVIGATION -->
+    <header class="navbar">
+        <div class="nav-container">
+
+            <a href="#top" class="brand" aria-label="Flora home">
+                <span class="brand-icon">F</span>
+                <span class="brand-name">Flora</span>
+            </a>
+
+            <div class="nav-message">
+                <span class="live-dot"></span>
+                <span>VIDEO CREATION</span>
+            </div>
+
+            <nav class="nav-links" aria-label="Main navigation">
+                <a href="#idea-studio">AI Video Creator</a>
+                <a href="#idea-studio">Create video</a>
+                <a href="#pricing">Pricing</a>
+            </nav>
+
+            <div class="nav-auth">
+                <button type="button" class="login-btn" onclick="showLogin()">
+                    Log in
+                </button>
+
+                <button type="button" class="signup-btn" onclick="showSignup()">
+                    Sign up
+                </button>
+            </div>
+
+        </div>
+    </header>
+
+    <main id="top">
+
+        <!-- FLORA VIDEO STUDIO: PRIMARY AND ONLY CREATION FEATURE -->
+        <section class="idea-studio-section" id="idea-studio">
+            <div class="idea-studio-wrap">
+                <div class="idea-studio-copy">
+                    <div class="idea-studio-eyebrow"><span class="studio-live-dot"></span> FLORA VIDEO STUDIO</div>
+                    <h1>Turn your ideas into <span>cinematic stories.</span></h1>
+                    <p>Enter a topic. Flora researches relevant real-world visuals, creates a narrated story, and edits it into a video ready for your channels — using reusable real-world visuals instead of AI-generated footage.</p>
+                    <div class="studio-benefits">
+                        <span>✓ Real-world stock visuals</span>
+                        <span>✓ Documentary-style narration</span>
+                        <span>✓ Captions and MP4 export</span>
+                    </div>
+                </div>
+                <div class="idea-studio-card">
+                    <div class="studio-card-heading">
+                        <div><span class="studio-kicker">START WITH AN IDEA</span><h2>Create your video</h2></div>
+                        <div class="studio-icon">✦</div>
+                    </div>
+                    <label for="documentaryIdea">What should your video be about?</label>
+                    <textarea id="documentaryIdea" maxlength="500" placeholder="Example: How Dubai transformed from a desert trading town into a global city..."></textarea>
+                    <div class="studio-options">
+                        <div><label for="documentaryLength">Video length</label><select id="documentaryLength"><option value="45">45 seconds</option><option value="60" selected>1 minute</option><option value="90">90 seconds</option><option value="120">2 minutes</option></select></div>
+                        <div><label for="documentaryFormat">Video format</label><select id="documentaryFormat"><option value="portrait">Vertical · Shorts/Reels/TikTok</option><option value="landscape">Landscape · YouTube</option><option value="square">Square · Social</option></select></div>
+                    </div>
+                    <button type="button" id="documentaryCreateButton" class="studio-create-button"><span>Create my video</span><span>↗</span></button>
+                    <div id="documentaryStatus" class="documentary-status" aria-live="polite">Free stock visuals and local video assembly. Processing may take a few minutes.</div>
+                    <div id="documentaryResult" class="documentary-result" hidden></div>
+                    <p class="studio-disclaimer">Use content you have rights to publish. Source availability and reuse licenses vary.</p>
+                </div>
+            </div>
+        </section>
+
+        <section class="value-section">
+
+            <div class="value-heading">
+                <div class="section-eyebrow">THE FLORA WAY</div>
+
+                <h2>
+                    Your stories should
+                    <span>flow everywhere.</span>
+                </h2>
+
+                <p>
+                    Stop creating the same content again and again.
+                    Start with one idea and let Flora handle the rest.
+                </p>
+            </div>
+
+            <div class="value-grid">
+
+                <article class="value-card">
+                    <div class="value-icon">01</div>
+                    <h3>One idea</h3>
+                    <p>
+                        Start with a thought, topic, story or business idea.
+                    </p>
+                </article>
+
+                <article class="value-card">
+                    <div class="value-icon">02</div>
+                    <h3>Video Creation</h3>
+                    <p>
+                        Flora creates the visuals and complete video.
+                    </p>
+                </article>
+
+                <article class="value-card">
+                    <div class="value-icon">03</div>
+                    <h3>Every platform</h3>
+                    <p>
+                        Get content ready for the platforms where your
+                        audience lives.
+                    </p>
+                </article>
+
+            </div>
+        </section>
+
+        <!-- PRICING: TO BE FINALIZED AFTER COST TESTING -->
+        <section class="pricing-section" id="pricing">
+            <div class="pricing-heading">
+                <div class="section-eyebrow">FLORA PRICING</div>
+                <h2>Plans that make <span>business sense.</span></h2>
+                <p>We're finalizing plans around finished video minutes, processing time and export quality. No confusing legacy credit bundles.</p>
+            </div>
+            <div class="pricing-grid">
+                <article class="pricing-card featured" style="max-width:560px;margin:0 auto;grid-column:1/-1">
+                    <div class="pricing-top"><span class="pricing-name">Early access</span><span class="pricing-tag">COMING SOON</span></div>
+                    <div class="price">Pricing in discussion</div>
+                    <p>Try the Flora video studio while we test generation quality, processing time and operating costs.</p>
+                    <ul>
+                        <li>✓ Documentary-style videos from your ideas</li>
+                        <li>✓ Reusable real-world visuals with source information</li>
+                        <li>✓ Narration, captions and MP4 export</li>
+                        <li>✓ Vertical, landscape and square formats</li>
+                    </ul>
+                    <p class="pricing-note">Paid plans and Korapay checkout will be enabled after we agree on fair usage limits and sustainable pricing.</p>
+                </article>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- FOOTER -->
+    <footer class="footer">
+
+        <div class="footer-container">
+
+            <a href="#top" class="brand">
+                <span class="brand-icon">F</span>
+                <span class="brand-name">Flora</span>
+            </a>
+
+            <div class="footer-links">
+                <a href="#idea-studio">AI Video Creator</a>
+                <a href="#idea-studio">Create video</a>
+                <a href="#pricing">Pricing</a>
+            </div>
+
+            <p>Your idea. A story worth watching.</p>
+
+            <span class="footer-copy">© 2026 Flora</span>
+
+        </div>
+    </footer>
+
+    <!-- LOGIN MODAL -->
+    <div id="loginModal" class="modal-overlay hidden">
+
+        <div class="auth-modal">
+
+            <button
+                type="button"
+                class="modal-close"
+                onclick="closeModal()"
+                aria-label="Close login"
+            >
+                ×
+            </button>
+
+            <div class="modal-icon">F</div>
+
+            <h2>Welcome back</h2>
+            <p>Log in to continue creating.</p>
+
+            <input
+                id="loginEmail"
+                type="email"
+                placeholder="Email"
+                autocomplete="email"
+            >
+
+            <input
+                id="loginPassword"
+                type="password"
+                placeholder="Password"
+                autocomplete="current-password"
+            >
+
+            <button
+                type="button"
+                id="loginContinue"
+                onclick="loginUser()"
+            >
+                Continue
+            </button>
+
+            <p class="modal-switch">
+                Don't have an account?
+
+                <button type="button" onclick="showSignup()">
+                    Create one
+                </button>
+            </p>
+
+        </div>
+    </div>
+
+    <!-- SIGNUP MODAL -->
+    <div id="signupModal" class="modal-overlay hidden">
+
+        <div class="auth-modal">
+
+            <button
+                type="button"
+                class="modal-close"
+                onclick="closeSignup()"
+                aria-label="Close signup"
+            >
+                ×
+            </button>
+
+            <div class="modal-icon">F</div>
+
+            <h2>Create your account</h2>
+            <p>Start creating with Flora.</p>
+
+            <input
+                id="signupName"
+                type="text"
+                placeholder="Your name"
+                autocomplete="name"
+            >
+
+            <input
+                id="signupEmail"
+                type="email"
+                placeholder="Email"
+                autocomplete="email"
+            >
+
+            <input
+                id="signupPassword"
+                type="password"
+                placeholder="Password"
+                autocomplete="new-password"
+            >
+
+            <button
+                type="button"
+                id="signupContinue"
+                onclick="signupUser()"
+            >
+                Create account
+            </button>
+
+            <p class="modal-switch">
+                Already have an account?
+
+                <button type="button" onclick="showLogin()">
+                    Log in
+                </button>
+            </p>
+
+        </div>
+    </div>
+
+    <!-- EXISTING JAVASCRIPT -->
+    <script src="app.js"></script>
+
+</body>
+</html>
