@@ -52,6 +52,9 @@ function renderRequests(){
 function bindPayButtons(){$$("[data-pay]").forEach(btn=>btn.addEventListener("click",()=>openPay(Number(btn.dataset.pay))));}
 function openPay(id){
   selectedRequest=requests.find(r=>r.id===id);if(!selectedRequest||selectedRequest.status!=="pending")return;
+  selectedRequest.remote = false;
+  $("#confirmPay").textContent = "Simulate payment";
+  $(".warning-box").textContent = "Confirm the recipient and amount carefully. This prototype does not connect to a bank or move real money.";
   $("#payAvatar").textContent=initials(selectedRequest.name);
   $("#payName").textContent=selectedRequest.name;
   $("#payRef").textContent=selectedRequest.ref;
@@ -72,10 +75,48 @@ $("#requestForm").addEventListener("submit",e=>{
   requests.unshift({id:Date.now(),name,amount,note:$("#senderNote").value.trim()||"Payment request",ref:$("#senderRef").value.trim()||`COVA-REQ-${Math.floor(1000+Math.random()*9000)}`,source:"Manually added",status:"pending",time:"Just added"});
   e.target.reset();closeModal("#requestModal");renderHome();renderRequests();toast("Request saved to Expected Payments.");
 });
-$("#confirmPay").addEventListener("click",()=>{
+$("#confirmPay").addEventListener("click", async ()=>{
   if(!selectedRequest)return;
-  selectedRequest.status="paid";selectedRequest.time="Paid just now";
-  closeModal("#payModal");renderHome();renderRequests();toast("Demo payment completed. No real money was moved.");
+
+  // QR requests are verified against the backend. This endpoint is still demo-only:
+  // it changes request status but does not transfer real money.
+  if(selectedRequest.remote){
+    const button = $("#confirmPay");
+    button.disabled = true;
+    button.textContent = "Checking…";
+
+    try {
+      const response = await fetch(
+        `${COVA_API_BASE}/api/requests/${encodeURIComponent(selectedRequest.id)}/simulate-payment`,
+        {
+          method: "POST",
+          headers: {"Content-Type":"application/json"},
+          body: JSON.stringify({confirmation:true})
+        }
+      );
+      const result = await response.json();
+      if(!response.ok || !result.success) {
+        throw new Error(result.detail || "Unable to update this request.");
+      }
+      closeModal("#payModal");
+      setScanMessage("Demo request marked as paid. No real money was transferred.", "success");
+      toast("Demo payment recorded. No real money was moved.");
+      selectedRequest = null;
+    } catch(error) {
+      toast(error.message || "Unable to process request.");
+    } finally {
+      button.disabled = false;
+      button.textContent = "Continue to payment";
+    }
+    return;
+  }
+
+  selectedRequest.status="paid";
+  selectedRequest.time="Paid just now";
+  closeModal("#payModal");
+  renderHome();
+  renderRequests();
+  toast("Demo payment completed. No real money was moved.");
 });
 $("#requestSearch").addEventListener("input",renderRequests);
 $$(".filter").forEach(btn=>btn.addEventListener("click",()=>{$$(".filter").forEach(b=>b.classList.remove("active"));btn.classList.add("active");activeFilter=btn.dataset.filter;renderRequests();}));
@@ -95,3 +136,259 @@ $("#shareQr").addEventListener("click",async()=>{
 $("#downloadQr").addEventListener("click",()=>toast("A real downloadable QR will be generated when Cova IDs are connected to the backend."));
 $("#notificationBtn").addEventListener("click",()=>toast("You're all caught up."));
 renderHome();
+
+
+// ==========================================
+// COVA QR SCANNER: CAMERA + IMAGE IMPORT
+// ==========================================
+// If the frontend and API are hosted on different domains, set:
+// window.COVA_API_BASE = "https://your-cova-api.onrender.com";
+// before loading app.js.
+
+const COVA_API_BASE = (window.COVA_API_BASE || window.location.origin).replace(/\/$/, "");
+let covaCameraStream = null;
+let covaScanFrame = null;
+let covaBarcodeDetector = null;
+let covaScannerBusy = false;
+
+const covaVideo = $("#cameraVideo");
+const covaCanvas = $("#scanCanvas");
+const covaCanvasContext = covaCanvas.getContext("2d", {willReadFrequently:true});
+
+function covaScanMessage(message, type="info") {
+  const result = $("#scanResult");
+  result.textContent = message;
+  result.className = `scan-result ${type}`;
+}
+
+function covaStopCamera() {
+  if(covaScanFrame) cancelAnimationFrame(covaScanFrame);
+  covaScanFrame = null;
+
+  if(covaCameraStream) {
+    covaCameraStream.getTracks().forEach(track => track.stop());
+    covaCameraStream = null;
+  }
+
+  covaVideo.pause();
+  covaVideo.srcObject = null;
+  covaVideo.classList.add("hidden");
+  $("#scanPlaceholder").classList.remove("hidden");
+  $("#startCamera").classList.remove("hidden");
+  $("#stopCamera").classList.add("hidden");
+}
+
+async function covaStartCamera() {
+  $("#scanResult").classList.add("hidden");
+
+  if(!navigator.mediaDevices?.getUserMedia) {
+    covaScanMessage("Camera access needs HTTPS or localhost. You can still import a QR image from WhatsApp or your gallery.", "error");
+    return;
+  }
+
+  try {
+    covaCameraStream = await navigator.mediaDevices.getUserMedia({
+      audio:false,
+      video:{facingMode:{ideal:"environment"}, width:{ideal:1280}, height:{ideal:720}}
+    });
+
+    covaVideo.srcObject = covaCameraStream;
+    covaVideo.classList.remove("hidden");
+    $("#scanPlaceholder").classList.add("hidden");
+    $("#startCamera").classList.add("hidden");
+    $("#stopCamera").classList.remove("hidden");
+    await covaVideo.play();
+
+    if("BarcodeDetector" in window) {
+      try {
+        covaBarcodeDetector = new BarcodeDetector({formats:["qr_code"]});
+      } catch(error) {
+        covaBarcodeDetector = null;
+      }
+    }
+    covaScanCameraFrame();
+  } catch(error) {
+    covaStopCamera();
+    covaScanMessage(
+      error.name === "NotAllowedError"
+        ? "Camera permission was denied. Allow camera access or import the QR image instead."
+        : "Could not open the camera. Try importing the QR image from your gallery.",
+      "error"
+    );
+  }
+}
+
+async function covaScanCameraFrame() {
+  if(!covaCameraStream || covaVideo.readyState < 2 || covaScannerBusy) {
+    covaScanFrame = requestAnimationFrame(covaScanCameraFrame);
+    return;
+  }
+
+  const width = covaVideo.videoWidth;
+  const height = covaVideo.videoHeight;
+
+  if(width && height) {
+    covaCanvas.width = width;
+    covaCanvas.height = height;
+    covaCanvasContext.drawImage(covaVideo, 0, 0, width, height);
+
+    try {
+      let value = null;
+
+      if(covaBarcodeDetector) {
+        const codes = await covaBarcodeDetector.detect(covaVideo);
+        if(codes.length) value = codes[0].rawValue;
+      } else if(window.jsQR) {
+        const pixels = covaCanvasContext.getImageData(0, 0, width, height);
+        const code = window.jsQR(pixels.data, width, height, {inversionAttempts:"attemptBoth"});
+        if(code) value = code.data;
+      }
+
+      if(value) {
+        covaScannerBusy = true;
+        covaStopCamera();
+        await covaHandleDecodedQR(value);
+        covaScannerBusy = false;
+        return;
+      }
+    } catch(error) {
+      // Keep scanning after a frame that could not be decoded.
+    }
+  }
+
+  covaScanFrame = requestAnimationFrame(covaScanCameraFrame);
+}
+
+async function covaDecodeImage(file) {
+  if(!file || !file.type.startsWith("image/")) {
+    covaScanMessage("Choose an image file containing a QR code.", "error");
+    return;
+  }
+
+  covaScanMessage("Reading QR code from image…");
+  const imageUrl = URL.createObjectURL(file);
+  const image = new Image();
+
+  image.onload = async () => {
+    try {
+      const canvas = document.createElement("canvas");
+      const context = canvas.getContext("2d", {willReadFrequently:true});
+      canvas.width = image.naturalWidth;
+      canvas.height = image.naturalHeight;
+      context.drawImage(image, 0, 0);
+
+      let value = null;
+
+      if("BarcodeDetector" in window) {
+        try {
+          const detector = new BarcodeDetector({formats:["qr_code"]});
+          const codes = await detector.detect(image);
+          if(codes.length) value = codes[0].rawValue;
+        } catch(error) {}
+      }
+
+      if(!value && window.jsQR) {
+        const pixels = context.getImageData(0, 0, canvas.width, canvas.height);
+        const code = window.jsQR(pixels.data, canvas.width, canvas.height, {inversionAttempts:"attemptBoth"});
+        if(code) value = code.data;
+      }
+
+      URL.revokeObjectURL(imageUrl);
+
+      if(!value) {
+        covaScanMessage("No QR code found. Try a clearer, uncropped QR image.", "error");
+        return;
+      }
+
+      await covaHandleDecodedQR(value);
+    } catch(error) {
+      URL.revokeObjectURL(imageUrl);
+      covaScanMessage("Cova couldn't read this image. Try another image.", "error");
+    }
+  };
+
+  image.onerror = () => {
+    URL.revokeObjectURL(imageUrl);
+    covaScanMessage("Unable to open this image.", "error");
+  };
+  image.src = imageUrl;
+}
+
+function covaExtractToken(raw) {
+  const value = String(raw || "").trim();
+
+  try {
+    const url = new URL(value);
+    const path = url.pathname.split("/").filter(Boolean);
+    const payIndex = path.indexOf("pay");
+    const resolveIndex = path.indexOf("resolve");
+
+    if(payIndex >= 0 && path[payIndex+1]) return path[payIndex+1];
+    if(resolveIndex >= 0 && path[resolveIndex+1]) return path[resolveIndex+1];
+  } catch(error) {}
+
+  const match = value.match(/^COVA:([A-Za-z0-9_-]{12,})$/i);
+  return match ? match[1] : null;
+}
+
+async function covaHandleDecodedQR(raw) {
+  const token = covaExtractToken(raw);
+
+  if(!token) {
+    covaScanMessage("This isn't a recognized Cova payment QR. Ask the sender to share their Cova request QR.", "error");
+    return;
+  }
+
+  covaScanMessage("QR found. Verifying recipient and payment details…");
+
+  try {
+    const response = await fetch(`${COVA_API_BASE}/api/resolve/${encodeURIComponent(token)}`);
+    const data = await response.json();
+
+    if(!response.ok || !data.success || !data.request) {
+      throw new Error(data.detail || "Could not verify this payment request.");
+    }
+
+    const request = data.request;
+
+    if(request.status !== "pending") {
+      throw new Error(`This request is ${request.status} and cannot be paid.`);
+    }
+
+    selectedRequest = {
+      id:request.id,
+      token:request.token,
+      name:request.sender_name,
+      amount:request.amount,
+      note:request.note || "Cova payment request",
+      status:request.status,
+      remote:true
+    };
+
+    $("#payAvatar").textContent = initials(request.sender_name);
+    $("#payName").textContent = request.sender_name;
+    $("#payRef").textContent = `Verified Cova request · ${request.id.slice(0,8)}`;
+    $("#payAmount").textContent = money(request.amount);
+    $("#payNote").textContent = request.note || "Cova payment request";
+    $(".warning-box").textContent = "The recipient and amount were retrieved from Cova's server. Review them carefully. Real bank transfer authorization is not connected yet.";
+    $("#confirmPay").textContent = "Continue to payment";
+    $("#payModal").classList.remove("hidden");
+
+    covaScanMessage("Cova QR verified. Review the recipient and amount before continuing.", "success");
+  } catch(error) {
+    covaScanMessage(error.message || "Could not verify this request. Check your connection and try again.", "error");
+  }
+}
+
+$("#startCamera").addEventListener("click", covaStartCamera);
+$("#stopCamera").addEventListener("click", covaStopCamera);
+
+$("#qrUpload").addEventListener("change", async event => {
+  const file = event.target.files?.[0];
+  if(file) await covaDecodeImage(file);
+  event.target.value = "";
+});
+
+document.addEventListener("visibilitychange", () => {
+  if(document.hidden) covaStopCamera();
+});
